@@ -52,19 +52,19 @@ function App() {
   // DEFINE STATE VARIABLE
   const [showForm, setShowForm] = useState(false);
   const [facts, setFacts] = useState([]);
-  const [currentCategory, setCurrentCategory ]= useState("all");
+  const [currentCategory, setCurrentCategory] = useState("all");
 
   useEffect(function () {
     async function getFacts() {
 
-    let query = supabase.from('facts').select('*');
+      let query = supabase.from('facts').select('*');
 
-    if(currentCategory !== "all")
-      query = query.eq("category", currentCategory);
+      if (currentCategory !== "all")
+        query = query.eq("category", currentCategory);
 
-      const { data: facts, } = await query.order("votesInteresting");
+      const { data: facts, error} = await query.order("votesInteresting");
       setFacts(facts);
-    } 
+    }
     getFacts();
   }, [currentCategory])
 
@@ -80,8 +80,8 @@ function App() {
 
       {/* MAIN CONTENT */}
       <div className="main">
-        <CategoryFilter setCurrentCategory = {setCurrentCategory} />
-        <FactsList facts={facts} />
+        <CategoryFilter setCurrentCategory={setCurrentCategory} />
+        <FactsList facts={facts} setFacts={setFacts} />
       </div>
 
     </>
@@ -140,12 +140,13 @@ function NewFactForm({ setFacts, setShowForm }) {
     e.preventDefault();
     console.log(text, source, category);
 
-
     // 2) Check if data is Valid, then add it to the list
     if (source && isValidHttpUrl(source) && category && textLength <= 200) {
       console.log("Valid Data");
 
-      // 3) Create new Fact object.
+      console.log(text, source, category);
+
+      // 3) Create new Fact object---> Doing LOCALLY 
       // const newFact = {
       //   id: Math.round(Math.random * 1000000000),
       //   text,
@@ -158,12 +159,10 @@ function NewFactForm({ setFacts, setShowForm }) {
       // }
 
       // 3) Upload fact to supabase and update it on the UI
-      const { data : newFact, error } = await supabase.from("facts").insert([{text, source, category}]).select();
-
-      console.log(newFact); 
+      const { data: newFact, error } = await supabase.from("facts").insert([{ text, source, category }]).select();
 
       // 4) Add the new Fact to the UI and also to the state
-      // setFacts((facts) => [newFact[0], ...facts]);
+      if (!error) setFacts((facts) => [newFact[0], ...facts]);
 
       // 5) Reset input fields.
       setText("");
@@ -221,7 +220,7 @@ function CategoryFilter({ setCurrentCategory }) {
 
 function FactsList({ facts }) {
 
-  if(facts.length === 0){
+  if (facts.length === 0) {
     return <h1> No facts for this category yet !! Create the first one NOW 💥</h1>
   };
 
@@ -244,7 +243,19 @@ function FactsList({ facts }) {
 
 // ################# CHILD COMPONENT FOR FACTS LIST #################
 
-function Fact({ fact }) {
+function Fact({ fact, setFacts }) {
+
+  async function handleVote() {
+    const { data: updatedFact, error } = await supabase.from("facts").update({ votesInteresting: fact.votesInteresting + 1 }).eq("id", fact.id).select();
+
+    console.log(updatedFact);
+    
+    if (!error) {
+      setFacts((facts) => facts.map((f) => (f.id === fact.if ? updatedFact[0] : f))
+      );
+    }
+  }
+
   return (
     <li className="fact">
       < p >
@@ -253,9 +264,9 @@ function Fact({ fact }) {
       </p >
       <span className="tag">{fact.category}</span>
       <div className="vote-buttons">
-        <button>👍🏻{fact.votesInteresting}</button>
-        <button>🤯{fact.votesMindBlowing}</button>
-        <button>⛔{fact.votesFalse}</button>
+        <button onClick={handleVote}>👍🏻{fact.votesInteresting}</button>
+        <button onClick={handleVote}>🤯{fact.votesMindBlowing}</button>
+        <button onClick={handleVote}>⛔{fact.votesFalse}</button>
       </div>
     </li >
   );
